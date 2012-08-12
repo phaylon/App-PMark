@@ -16,6 +16,7 @@ my %_command = (
     'rmnotes'   => 'RemoveNotes',
     'export'    => 'Export',
     'subscribe' => 'Subscribe',
+    'update'    => 'Update',
 );
 
 my @_command_help = (map "  $_\n",
@@ -28,6 +29,7 @@ my @_command_help = (map "  $_\n",
     q!rmnotes:              Remove notes!,
     q!export:               Export profile data!,
     q!subscribe:            Subscribe to profiles of others!,
+    q!update:               Update all subscriptions!,
 );
 
 sub run {

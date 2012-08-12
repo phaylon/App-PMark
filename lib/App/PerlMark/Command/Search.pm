@@ -12,9 +12,8 @@ sub _command_options {
     ['raw|r',   'only output module names'],
     ['info|i',  'show full info for every module'],
     ['score|s=s', 'filter modules by score',
-        { default => 0 }],
-    ['all-tags|T', 'include all tags',
-        { implies => { tags => 1 } }],
+        { default => 1 }],
+    ['all-tags|T', 'include all tags'],
 }
 
 sub _option_constraints {
@@ -40,7 +39,7 @@ sub run {
         $self->options->case_sensitive,
         @patterns,
     );
-    my @names       = $profile->module_names;
+    my @names       = $self->query_all_module_names($profile);
     my $max_len     = max map length, @names;
     my $options     = $self->options;
     my $min_score   = $options->score;
@@ -51,11 +50,11 @@ sub run {
     }
     for my $name (sort @names) {
         my $own   = $profile->module($name);
-        my $score = $own->recommended;
+        my $score = $self->query_recommended_by($profile, $name);
         next if $min_score > $score;
         my @tags  = $options->all_tags
-            ? $own->all_tags
-            : $own->tags;
+            ? $self->query_counted_tags_all($profile, $name)
+            : $self->query_counted_tags($profile, $name);
         next unless not(@rx)
             or ($in_names and grep { $name =~ $_ } @rx)
             or ($in_tags and $self->_match_tags(\@rx, \@tags));
@@ -69,7 +68,10 @@ sub run {
             printf "%-${max_len}s  %6s  %s\n",
                 $name,
                 $score ? "(+$score)" : '',
-                @tags  ? sprintf("[%s]", join ' ', sort @tags) : '';
+                @tags  ? join(' ', map {
+                    my ($name, $count) = @$_;
+                    $count > 1 ? sprintf('%s(%d)', $name, $count) : $name;
+                } @tags) : '';
         }
     }
     return 1;
@@ -78,6 +80,7 @@ sub run {
 with qw(
     App::PerlMark::Command
     App::PerlMark::Command::ShowInfo
+    App::PerlMark::Command::DeepQuery
 );
 
 1;

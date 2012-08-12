@@ -11,7 +11,13 @@ sub _option_constraints {
 }
 
 sub run {
-    my ($self, $profile, $target) = @_;
+    my ($self, $profile, $name, $target) = @_;
+    my $source = $profile->add_source($name, $target);
+    printf "Updating '%s' from %s\n", $name, $target;
+    my $error = $source->update;
+    die "$0: Unable to subscribe to $target: $error\n";
+        if $error;
+    return 1;
 }
 
 with qw(

@@ -6,34 +6,45 @@ use Fcntl               qw( :flock );
 use App::PerlMark::Util qw( assert_path );
 use File::Spec;
 use JSON::PP;
+use Try::Tiny;
 
 use aliased 'App::PerlMark::Profile::Module';
 use aliased 'App::PerlMark::Profile::Module::Version';
 use aliased 'App::PerlMark::Profile::Note';
+use aliased 'App::PerlMark::Profile::Source';
 
-has path            => (is => 'ro', required => 1);
-has file            => (is => 'lazy');
-has data            => (is => 'lazy');
-has module_map      => (is => 'lazy');
+has path        => (is => 'ro', required => 1);
+has file        => (is => 'lazy');
+has data        => (is => 'lazy');
+has source_map  => (is => 'lazy');
+has json        => (is => 'lazy');
+has is_readonly => (is => 'ro');
+has is_relaxed  => (is => 'ro');
 
-my $_inflate = sub {
-    my ($class) = @_;
-    return sub {
-        my ($args) = @_;
-        return $class->new(%$args);
+sub _build_json {
+    my ($self) = @_;
+    my $_inflate = sub {
+        my ($class, %common) = @_;
+        return sub {
+            my ($args) = @_;
+            return $class->new(%$args, %common);
+        };
     };
-};
-
-my $_json = JSON::PP
-    ->new
-#    ->pretty(1)
-    ->filter_json_single_key_object(__module__  => Module->$_inflate)
-    ->filter_json_single_key_object(__version__ => Version->$_inflate)
-    ->filter_json_single_key_object(__note__    => Note->$_inflate)
-    ->convert_blessed(1)
-    ->relaxed(1)
-    ->canonical(1)
-    ->utf8(0);
+    return JSON::PP->new
+        ->convert_blessed(1)->relaxed(1)->canonical(1)->utf8(0)
+        ->filter_json_single_key_object(
+            __module__  => Module->$_inflate,
+        )
+        ->filter_json_single_key_object(
+            __version__ => Version->$_inflate,
+        )
+        ->filter_json_single_key_object(
+            __note__    => Note->$_inflate,
+        )
+        ->filter_json_single_key_object(
+            __source__  => Source->$_inflate(parent => $self),
+        )
+}
 
 my %_real_mode = (
     read    => '<:utf8',
@@ -68,19 +79,33 @@ sub _build_data {
     my $file = $self->file;
     return {}
         unless -e $file;
-    my $fh = $file->$_open('read');
-    my $body = do { local $/; <$fh> };
-    $fh->$_close($file);
-    my $data = $_json->decode($body);
-    die "$0: Profile '$file' contains no compat version metadata\n"
-        unless defined $data->{meta}{version};
-    require App::PerlMark;
-    my $own_version  = App::PerlMark->VERSION;
-    my $data_version = $data->{meta}{version};
-    die sprintf "$0: Profile version for '%s' is %s, but we are %s\n",
-        $data_version, $own_version
-        if $data_version > $own_version;
-    return $data;
+    try {
+        my $fh = $file->$_open('read');
+        my $body = do { local $/; <$fh> };
+        $fh->$_close($file);
+        my $data = $self->json->decode($body);
+        die "$0: Profile '$file' contains no compat version metadata\n"
+            unless defined $data->{meta}{version};
+        require App::PerlMark;
+        my $own_version  = App::PerlMark->VERSION;
+        my $data_version = $data->{meta}{version};
+        die sprintf "$0: Profile version for '%s' is %s, but we are %s\n",
+            $data_version, $own_version
+            if $data_version > $own_version;
+        return $data;
+    }
+    catch {
+        die $_ unless $self->is_relaxed;
+        chomp(my $error = $_);
+        $error =~ s{\s+at\s+\S+\s+line\s+\d+.*}{};
+        warn "$0: Warning: Cannot read profile '$file': $error\n";
+        return {};
+    };
+}
+
+sub _build_source_map {
+    my ($self) = @_;
+    return $self->data->{source_map} || {};
 }
 
 sub _build_module_map {
@@ -88,20 +113,31 @@ sub _build_module_map {
     return $self->data->{module_map} || {};
 }
 
-sub modules {
+sub sources {
     my ($self) = @_;
-    return values %{$self->module_map};
+    return values %{$self->source_map};
 }
 
-sub module {
+sub source {
     my ($self, $name) = @_;
-    return $self->module_map->{$name}
-        ||= Module->new(name => $name);
+    return $self->source_map->{lc $name};
 }
 
-sub module_names {
-    my ($self) = @_;
-    return sort keys %{$self->module_map};
+sub add_source {
+    my ($self, $name, $target) = @_;
+    $name = lc $name;
+    die "$0: Source names can only contain 'a-z', '0-9', '-' and '_'\n"
+        if $name =~ m{[^a-z0-9_-]};
+    if (my $existing = $self->source($name)) {
+        die "$0: You are already subscribed to a source named "
+            . "'$name':\n  " . $existing->target . "\n";
+    }
+    my $source = Source->new(
+        name    => $name,
+        target  => $target,
+        parent  => $self,
+    );
+    return $self->source_map->{$name} = $source;
 }
 
 sub as_data {
@@ -109,6 +145,7 @@ sub as_data {
     require App::PerlMark;
     return {
         module_map => $self->module_map,
+        source_map => $self->source_map,
         meta => {
             version => App::PerlMark->VERSION,
             update  => scalar time,
@@ -118,11 +155,13 @@ sub as_data {
 
 sub as_json {
     my ($self) = @_;
-    return $_json->encode($self->as_data);
+    return $self->json->encode($self->as_data);
 }
 
 sub store {
     my ($self) = @_;
+    die "$0: Cannot store a readonly profile\n"
+        if $self->is_readonly;
     my $file = $self->file;
     unless (-e $file) {
         warn "Initializing profile '$file'\n";
@@ -135,5 +174,9 @@ sub store {
     $fh->$_close($file);
     return 1;
 }
+
+with qw(
+    App::PerlMark::Profile::HasModules
+);
 
 1;
