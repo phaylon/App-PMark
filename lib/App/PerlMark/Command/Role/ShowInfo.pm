@@ -1,4 +1,4 @@
-package App::PerlMark::Command::ShowInfo;
+package App::PerlMark::Command::Role::ShowInfo;
 use Moo::Role;
 
 sub show_info {
@@ -16,9 +16,9 @@ sub show_score_info {
     my ($self, $profile, $name) = @_;
     my @by    = $self->query_recommended_by($profile, $name);
     my $score = scalar @by;
-    printf "> Score: %s\n", $score ? "+$score" : 0;
-    printf "    by: %s\n", join ', ', @by
-        if @by;
+    printf " Score: %s (by %s)\n",
+        $score ? "+$score" : 0,
+        join(', ', @by) || 'nobody';
     return 1;
 }
 
@@ -26,7 +26,7 @@ sub show_note_info {
     my ($self, $profile, $module) = @_;
     my @notes = $self->_find_notes($profile, $module);
     return unless @notes;
-    printf "> Notes:\n";
+    printf " Notes:\n";
     $self->_display_note($_)
         for @notes;
     return 1;
@@ -83,7 +83,7 @@ sub show_tag_info {
     $_->profile->module($module->name)->$collect
         for $profile->sources;
     return unless keys %all or keys %by_version;
-    print "> Tags:\n";
+#    print " Tags:\n";
     my $display = sub {
         my $map = shift;
         return join ', ', map {
@@ -91,14 +91,14 @@ sub show_tag_info {
             $count > 1 ? "$_($count)" : $_;
         } sort keys %$map;
     };
-    printf "    All Versions: %s\n", $display->(\%all);
+    printf " Tags: %s\n", $display->(\%all);
     printf "    %s: %s\n", $_, $display->($by_version{$_})
         for sort keys %by_version;
     return 1;
 }
 
 with qw(
-    App::PerlMark::Command::DeepQuery
+    App::PerlMark::Command::Role::DeepQuery
 );
 
 1;

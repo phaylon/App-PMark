@@ -1,24 +1,95 @@
 package App::PerlMark::Command;
 use Moo::Role;
-use Getopt::Long::Descriptive   qw( prog_name describe_options );
 use File::Spec;
 use File::HomeDir;
 use App::PerlMark::Profile;
-use App::PerlMark::Util         qw( ssh_remote );
+use App::PerlMark::Util         qw( ssh_remote textblock );
 use Object::Remote;
+
+requires qw(
+    app
+);
 
 my $_default_profile = $ENV{PERLMARK_PROFILE}
     || File::Spec->catdir(File::HomeDir->my_data, '.perlmark');
 
-has options => (
-    is          => 'ro',
-    init_arg    => 'options',
-    required    => 1,
+my @_version_modules = qw(
+    App::PerlMark
+    Object::Remote
+    CPS::Future
+    Module::Runtime
+    File::HomeDir
 );
 
-sub _command_options    { () }
-sub _command_arguments  { '' }
-sub _option_constraints { () }
+before validate_args => sub {
+    my ($self, $options, $args) = @_;
+    if ($options->help) {
+        print $self->usage->text;
+        exit;
+    }
+    if ($options->version) {
+        $self->app->show_versions;
+    }
+};
+
+sub stores_profile { 0 }
+
+sub examples { () }
+
+sub fail {
+    my ($self, @msg) = @_;
+    my $msg = join '', @msg;
+    die "Error: $msg\n";
+}
+
+around description => sub {
+    my ($orig, $self, @args) = @_;
+    my $command     = ($self->command_names)[0];
+    my $description = $self->$orig(@args);
+    my $storage_msg = $self->stores_profile
+        ? "This command WILL modify your profile data."
+        : "This command WILL NOT modify your profile data.";
+    my $examples    = join "\n\n",
+        "Examples:",
+        map {
+            my ($comment, $arguments, $prefix) = @$_;
+            $prefix = $prefix ? "$prefix " : '';
+            "\t# $comment\n\t${prefix}perlmark $command $arguments";
+        } $self->examples;
+    $description = "$description\n\t$storage_msg\n";
+    $description = "$description\n$examples\n"
+        if $self->examples;
+    $description = "$description\nOptions:\n";
+    return $description;
+};
+
+around execute => sub {
+    my ($orig, $self, $options, $args) = @_;
+    my $profile = $self->_make_profile($options);
+    $self->$orig($profile, $options, @$args);
+    $self->_post_execute($profile);
+    return 1;
+};
+
+around opt_spec => sub {
+    my ($orig, $self, @args) = @_;
+    my @specific = $self->$orig(@args);
+    return (
+        ['Generic Options:'],
+        [   'profile|p=s' => 'location of the profile directory',
+            { default => $_default_profile },
+        ],
+        @specific
+            ? ([], ['Command Specific Options:'], @specific)
+            : (),
+        [],
+        ['Meta Options:'],
+        ['help|h|?'     => 'print short help and exit'],
+        ['version|V'    => 'print version and exit'],
+    );
+};
+
+sub _post_execute { }
 
 sub _make_profile {
     my ($self, $options) = @_;
@@ -30,65 +101,6 @@ sub _make_profile {
     }
     return App::PerlMark::Profile
         ->new(path => $path);
-}
-
-sub _validate_options {
-    my ($class, $options) = @_;
-    my @errors = map {
-        ($_->[0] ? $_->[1] : ());
-    } $class->_option_constraints($options, [@ARGV]);
-}
-
-sub run_with_options {
-    my ($class, $command) = @_;
-    my $arguments = $class->_command_arguments;
-    my @options   = $class->_command_options;
-    my ($options, $usage) = describe_options(
-        join(' ',
-            'Usage:',
-            '%c',
-            $command,
-            length($arguments) ? $arguments : (),
-            '%o',
-        ),
-        [],
-        [   'profile|p=s',
-            'path to the profile directory that should be used',
-            { default => $_default_profile },
-        ],
-        @options
-            ? ([], @options)
-            : (),
-        [],
-        [   'version|V',
-            'print version information and exit',
-        ],
-        [   'help|h|?',
-            'print this help and exit',
-        ],
-        [],
-    );
-    if (my @errors = $class->_validate_options($options)) {
-        warn "$0: $_\n" for @errors;
-        print $usage->text;
-        exit 1;
-    }
-    if ($options->help) {
-        print $usage->text;
-        exit;
-    }
-    if ($options->version) {
-        require App::PerlMark;
-        printf "%s (%s) %s\n",
-            'App::PerlMark',
-            $0,
-            App::PerlMark->VERSION;
-        exit;
-    }
-    my $profile = $class->_make_profile($options);
-    my $object  = $class->new(options => $options);
-    $object->run($profile, @ARGV);
-    return 1;
 }
 
 1;

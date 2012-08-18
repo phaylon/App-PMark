@@ -1,12 +1,38 @@
 package App::PerlMark::Command::Update;
 use Moo;
-use List::Util  qw( max );
+use App::PerlMark::Util qw( textblock );
 
-sub _command_arguments { '<identifiers>' }
+extends 'App::Cmd::Command';
 
-sub run {
-    my ($self, $profile, @names) = @_;
-    my @sources = $self->_find_sources($profile, @names);
+sub abstract { q!update the profiles you are subscribed to! }
+
+sub usage_desc { '%c update %o [<identifiers>...]' }
+
+sub description {
+    return textblock q{
+        This command updates the locally stored versions of profiles you
+        are subscribed to.
+
+        If no arguments are supplied, all subscriptions will be updated.
+        If you give a set of identifiers as arguments, only the
+        subscriptions known under those identifiers will be updated.
+
+        You can use the 'subscribe' command to add new subscriptions and
+        the 'unsubscribe' command to remove subscriptions from your list
+        of sources. You can also use the 'sources' command to give you a
+        list of current or not yet subscribed sources.
+    };
+}
+
+sub examples {
+    ['update all sources', ''],
+    ['update only foo and bar', 'foo bar'],
+}
+
+sub execute {
+    my ($self, $profile, $options, @names) = @_;
+    my @sources = $self->_find_sources($profile, @names)
+        or print "No subscriptions to update\n" and return;
     for my $source (@sources) {
         printf "Updating '%s' from %s\n", $source->name, $source->target;
         my $error = $source->update;
@@ -29,7 +55,6 @@ sub _find_sources {
 
 with qw(
     App::PerlMark::Command
-    App::PerlMark::Command::StoreProfile
 );
 
 1;

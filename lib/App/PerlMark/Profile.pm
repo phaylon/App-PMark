@@ -4,6 +4,7 @@ use File::Basename;
 use File::Path          qw( make_path );
 use Fcntl               qw( :flock );
 use App::PerlMark::Util qw( assert_path );
+use List::Util          qw( first );
 use File::Spec;
 use JSON::PP;
 use Try::Tiny;
@@ -20,6 +21,10 @@ has source_map  => (is => 'lazy');
 has json        => (is => 'lazy');
 has is_readonly => (is => 'ro');
 has is_relaxed  => (is => 'ro');
+
+sub _load_profile_data {
+    my ($self, $target) = @_;
+}
 
 sub _build_json {
     my ($self) = @_;
@@ -132,12 +137,29 @@ sub add_source {
         die "$0: You are already subscribed to a source named "
             . "'$name':\n  " . $existing->target . "\n";
     }
+    if (my $existing = $self->find_source_by_target($target)) {
+        die "$0: Your subscription to '" . $existing->name . "' "
+            . "already updates from $target\n";
+    }
     my $source = Source->new(
         name    => $name,
         target  => $target,
         parent  => $self,
     );
     return $self->source_map->{$name} = $source;
+}
+
+sub find_source_by_target {
+    my ($self, $target) = @_;
+    return first {
+        $_->target eq $target;
+    } $self->sources;
+}
+
+sub remove_source {
+    my ($self, $name) = @_;
+    $name = lc $name;
+    return delete $self->source_map->{$name};
 }
 
 sub as_data {

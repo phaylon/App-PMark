@@ -1,48 +1,54 @@
 package App::PerlMark;
 use Moo;
-use Module::Runtime qw( use_module );
+use Module::Runtime             qw( use_module );
+use List::Util                  qw( max );
+
+extends 'App::Cmd';
 
 our $VERSION = '0.001';
 $VERSION = eval $VERSION;
 
-my %_command = (
-    'recommend' => 'Recommend',
-    '++'        => 'Recommend',
-    'tag'       => 'Tag',
-    'search'    => 'Search',
-    'tags'      => 'Tags',
-    'info'      => 'Info',
-    'note'      => 'Note',
-    'rmnotes'   => 'RemoveNotes',
-    'export'    => 'Export',
-    'subscribe' => 'Subscribe',
-    'update'    => 'Update',
-);
+sub allow_any_unambiguous_abbrev { 1 }
 
-my @_command_help = (map "  $_\n",
-    q!recommend (or ++):    Add module recommendations!,
-    q!tag:                  Add tags to modules and versions!,
-    q!search:               Search known modules!,
-    q!tags:                 Search known tags!,
-    q!info:                 Query full module information!,
-    q!note:                 Add notes to modules and versions!,
-    q!rmnotes:              Remove notes!,
-    q!export:               Export profile data!,
-    q!subscribe:            Subscribe to profiles of others!,
-    q!update:               Update all subscriptions!,
-);
+around _plugins => sub {
+    my ($orig, $self, @args) = @_;
+    return grep { not m{^App::PerlMark::Command::Role::} }
+        $self->$orig(@args);
+};
 
-sub run {
-    my ($self) = @_;
-    my $command = shift @ARGV;
-    die "$0: Missing command parameter\n"
-        unless defined $command;
-    die "$0: Unknown command '$command'. Valid commands are:\n"
-        . join '', @_command_help
-        unless exists $_command{$command};
-    my $class = sprintf 'App::PerlMark::Command::%s', $_command{$command};
-    return use_module($class)->run_with_options($command);
+sub usage_desc { '%c <command> %o <arguments>...' }
+
+sub global_opt_spec {
+    ['version|V', 'print versions and exit'],
 }
+
+my @_version_modules = qw(
+    App::PerlMark
+    Object::Remote
+    CPS::Future
+    Module::Runtime
+    File::HomeDir
+);
+
+sub show_versions {
+    my ($self, $options, $args) = @_;
+    my $max_len = max map length, @_version_modules;
+    (my $perl_version = $^V) =~ s{^v}{};
+    printf "%-${max_len}s  %s\n", @$_
+        for ['perl', $perl_version],
+            map [$_, $_->VERSION],
+            map use_module($_),
+            sort @_version_modules;
+    return 1;
+};
+
+before execute_command => sub {
+    my ($self) = @_;
+    if ($self->global_options->version) {
+        $self->show_versions;
+        exit;
+    }
+};
 
 1;
 
@@ -50,19 +56,41 @@ __END__
 
 =head1 NAME
 
-App::PerlMark - Description goes here
+App::PerlMark - Distributed module recommendations, notes and tags
 
 =head1 SYNOPSIS
 
 =head1 DESCRIPTION
 
+=head1 COMMANDS
+
+=head2 help
+
+=head2 recommend
+=head2 unrecommend
+
+=head2 search
+=head2 info
+
+=head2 note
+=head2 rm-notes
+
+=head2 tag
+=head2 untag
+=head2 tags
+
+=head2 export
+
+=head2 subscribe
+=head2 unsubscribe
+=head2 sources
+=head2 update
+
+=head2 forget
+
 =head1 AUTHOR
 
- Robert Sedlacek <rs@474.at>
-
-=head1 CONTRIBUTORS
-
-None yet - maybe this software is perfect! (ahahahahahahahahaha)
+Robert Sedlacek <rs@474.at>
 
 =head1 COPYRIGHT
 
@@ -73,3 +101,5 @@ as listed above.
 
 This library is free software and may be distributed under the same terms
 as perl itself.
+
+=cut

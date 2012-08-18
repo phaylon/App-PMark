@@ -18,9 +18,19 @@ sub module {
         ||= Module->new(name => $name);
 }
 
+sub has_module {
+    my ($self, $name) = @_;
+    return $self->module_map->{$name};
+}
+
 sub module_names {
     my ($self) = @_;
     return sort keys %{$self->module_map};
+}
+
+sub remove_module {
+    my ($self, $name) = @_;
+    return delete $self->module_map->{$name};
 }
 
 1;

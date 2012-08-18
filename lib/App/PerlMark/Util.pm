@@ -11,7 +11,18 @@ our @EXPORT_OK = qw(
     ssh_remote
     open_file
     assert_path
+    textblock
 );
+
+sub textblock {
+    my ($text) = @_;
+    $text =~ s{^[\s\n]+}{};
+    $text =~ s{[\s\n]+$}{};
+    $text =~ s{(\n+)[^\t\S\n]*}{$1\t}g;
+    $text =~ s{^}{\t};
+    $text =~ s{$}{\n};
+    return $text;
+}
 
 sub assert_path {
     my ($path) = @_;
@@ -22,6 +33,14 @@ sub assert_path {
         exit 1;
     }
     return 1;
+}
+
+sub read_file {
+    my ($file, $mode) = @_;
+    my ($fh,  $error) = open_file($file, $mode);
+    return undef, $error
+        if defined $error;
+    return do { local $/; scalar <$fh> }, undef;
 }
 
 sub open_file {
@@ -52,7 +71,7 @@ sub ssh_remote {
 
 sub patterns_to_regexps {
     my ($ignore_case, @patterns) = @_;
-    return map { pattern_to_regexp($ignore_case, $_) } @_;
+    return map { pattern_to_regexp($ignore_case, $_) } @patterns;
 }
 
 sub pattern_to_regexp {
@@ -69,10 +88,10 @@ sub pattern_to_regexp {
         elsif ($orig eq $pattern and $pattern =~ s{^\%}{}) {
             push @parts, qr{^};
         }
-        elsif ($pattern =~ s{\%$}{}) {
+        elsif ($pattern =~ s{^\%$}{}) {
             push @parts, qr{$};
         }
-        elsif ($pattern =~ s{^([^*+]+)}{}) {
+        elsif ($pattern =~ s{^([^*+%]+)}{}) {
             push @parts, $ignore_case ? qr{\Q$1\E} : qr{\Q$1\E}i;
         }
         else {

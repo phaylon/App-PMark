@@ -1,4 +1,4 @@
-package App::PerlMark::Command::DeepQuery;
+package App::PerlMark::Command::Role::DeepQuery;
 use Moo::Role;
 use List::MoreUtils qw( uniq );
 
@@ -48,7 +48,7 @@ sub query_all_module_names {
     $module{$_->name}++
         for $profile->modules,
             map { ($_->profile->modules) } $profile->sources;
-    return sort keys %module;
+    return sort { lc($a) cmp lc($b) } keys %module;
 }
 
 1;

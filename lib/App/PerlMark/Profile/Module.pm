@@ -27,11 +27,18 @@ sub versions {
     } values %{$self->version_map};
 }
 
+sub has_version {
+    my ($self, $version) = @_;
+    return $self->version_map->{$version};
+}
+
 sub current_version {
     my ($self) = @_;
     my $module = $self->name;
     my $meta = Module::Metadata
         ->new_from_module($module, collect_pod => 0);
+    die "Module $module does not seem to be installed\n"
+        unless $meta;
     my $version = $meta->version($module);
     die "Unable to find a version for module '$module'\n"
         unless defined($version) and length($version);

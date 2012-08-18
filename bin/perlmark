@@ -1,4 +1,4 @@
 #!/usr/bin/env perl
 use strictures 1;
 use App::PerlMark;
-App::PerlMark->new->run;
+App::PerlMark->run;

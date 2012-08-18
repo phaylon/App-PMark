@@ -3,6 +3,7 @@ use Moo;
 use File::Spec;
 use App::PerlMark::Util qw( ssh_remote assert_path );
 use Object::Remote;
+use Try::Tiny;
 use HTTP::Tiny;
 
 has path    => (is => 'lazy');
@@ -79,13 +80,18 @@ sub _update_from_file {
 sub _update_from_ssh {
     my ($self, $remote) = @_;
     my ($remote_target, $remote_path) = @$remote;
-    my ($fh, $error) = App::PerlMark::Util
-        ->can::on($remote_target, 'open_file')
-        ->($remote_path, '<:utf8');
-    return $error
-        if $error;
-    $self->_write_json(do { local $/; <$fh> });
-    return undef;
+    try {
+        my $file = App::PerlMark::File
+            ->new::on($remote_target, path => $remote_path);
+#    my $cb = App::PerlMark::Util->can::on($remote_target, 'read_file');
+#    my ($body, $error) = $cb->($remote_path, '<:utf8');
+        warn "READ LOCAL $remote_target $remote_path";
+        $self->_write_json($file->read_all);
+        return undef;
+    }
+    catch {
+        return $_;
+    };
 }
 
 sub _write_json {
