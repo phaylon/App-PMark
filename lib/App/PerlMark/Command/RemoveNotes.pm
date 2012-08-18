@@ -1,6 +1,7 @@
 package App::PerlMark::Command::RemoveNotes;
 use Moo;
 use App::PerlMark::Util qw( textblock );
+use Log::Contextual     qw( :log );
 
 extends 'App::Cmd::Command';
 
@@ -42,7 +43,7 @@ sub _find_modules {
     if (my $modules = $options->module) {
         return map {
             my $module = $profile->has_module($_);
-            print "Unknown module '$_'\n"
+            log_warn { "unknown module '$_'" }
                 unless $module;
             ($module ? $module : ());
         } @$modules;
@@ -59,22 +60,24 @@ sub execute {
         my $seen;
         MODULE: for my $module (@modules) {
             if (my $note = $module->remove_note($note_id)) {
-                printf "Removed note %s from %s\n",
+                log_info { sprintf q!removed note %s from %s!,
                     $note_id,
-                    $module->name;
+                    $module->name,
+                };
                 $seen++;
             }
             for my $version ($module->versions) {
                 if (my $note = $version->remove_note($note_id)) {
-                    printf "Removed note %s from %s (%s)\n",
+                    log_info { sprintf q!removed note %s from %s (%s)!,
                         $note_id,
                         $module->name,
-                        $version->version;
+                        $version->version,
+                    };
                     $seen++;
                 }
             }
         }
-        printf "Unable to find note %s\n", $note_id
+        log_warn { "unable to find note $note_id" }
             unless $seen;
     }
     return 1;

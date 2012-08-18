@@ -3,28 +3,86 @@ use Moo;
 use File::Basename;
 use File::Path          qw( make_path );
 use Fcntl               qw( :flock );
-use App::PerlMark::Util qw( assert_path );
+use App::PerlMark::Util qw( assert_path fail );
 use List::Util          qw( first );
 use File::Spec;
 use JSON::PP;
 use Try::Tiny;
+use Log::Contextual     qw( :log );
 
 use aliased 'App::PerlMark::Profile::Module';
 use aliased 'App::PerlMark::Profile::Module::Version';
 use aliased 'App::PerlMark::Profile::Note';
 use aliased 'App::PerlMark::Profile::Source';
 
-has path        => (is => 'ro', required => 1);
-has file        => (is => 'lazy');
+has file        => (is => 'ro', required => 1);
+has path        => (is => 'lazy');
 has data        => (is => 'lazy');
-has source_map  => (is => 'lazy');
+has source_map  => (is => 'rwp', lazy => 1, builder => 1);
 has json        => (is => 'lazy');
 has is_readonly => (is => 'ro');
 has is_relaxed  => (is => 'ro');
 
-sub _load_profile_data {
-    my ($self, $target) = @_;
+sub replace_with {
+    my ($self, $other) = @_;
+    log_info { 'replacing all module and source data' };
+    $self->_set_module_map($other->module_map);
+    $self->_set_source_map($other->source_map);
+    return 1;
 }
+
+sub merge_with {
+    my ($self, $other) = @_;
+    $self->merge_modules_with($other);
+    $self->merge_sources_with($other);
+    return 1;
+}
+
+sub merge_modules_with {
+    my ($self, $other) = @_;
+    log_info { 'merging modules' };
+    for my $other_module ($other->modules) {
+        my $exists = $self->has_module($other_module->name);
+        my $module = $exists || $self->module($other_module->name);
+        log_info { sprintf "%s module '%s'",
+            $exists ? 'updating' : 'adding',
+            $module->name;
+        };
+        $module->merge_with($other_module);
+    }
+    log_info { 'done merging modules' };
+    return 1;
+}
+
+sub merge_sources_with {
+    my ($self, $other) = @_;
+    log_info { 'merging sources' };
+    for my $other_source ($other->sources) {
+        my ($name, $target) = (
+            $other_source->name,
+            $other_source->target,
+        );
+        my $source;
+        if ($source = $self->source($name)) {
+            next if $source->target eq $target;
+            log_info { sprintf q!target for source '%s' is now '%s'!,
+                $name, $target,
+            };
+            $source->target($target);
+        }
+        else {
+            log_info { sprintf q!adding source '%s' (%s)!,
+                $name, $target,
+            };
+            $source = $self->add_source($name, $target);
+        }
+        log_info { sprintf q!updating source '%s'!, $name };
+        $source->update;
+    }
+    log_info { 'done merging sources' };
+}
+
+sub _build_path { dirname $_[0]->file }
 
 sub _build_json {
     my ($self) = @_;
@@ -59,18 +117,18 @@ my %_real_mode = (
 my $_open = sub {
     my ($file, $mode) = @_;
     open my $fh, $_real_mode{$mode}, $file
-        or die "Unable to $mode profile '$file': $!\n";
+        or fail "unable to $mode profile '$file': $!";
     flock $fh, LOCK_EX
-        or die "Unable to obtain lock for profile '$file': $!\n";
+        or fail "unable to obtain lock for profile '$file': $!";
     return $fh;
 };
 
 my $_close = sub {
     my ($fh, $file) = @_;
     flock $fh, LOCK_UN
-        or die "Unable to release lock to profile '$file': $!\n";
+        or fail "unable to release lock to profile '$file': $!";
     close $fh
-        or die "Unable to close handle to profile '$file': $!\n";
+        or fail "unable to close handle to profile '$file': $!";
     return 1;
 };
 
@@ -89,12 +147,12 @@ sub _build_data {
         my $body = do { local $/; <$fh> };
         $fh->$_close($file);
         my $data = $self->json->decode($body);
-        die "$0: Profile '$file' contains no compat version metadata\n"
+        fail "profile '$file' contains no compat version metadata"
             unless defined $data->{meta}{version};
         require App::PerlMark;
         my $own_version  = App::PerlMark->VERSION;
         my $data_version = $data->{meta}{version};
-        die sprintf "$0: Profile version for '%s' is %s, but we are %s\n",
+        fail sprintf "profile version for '%s' is %s, but we are %s",
             $data_version, $own_version
             if $data_version > $own_version;
         return $data;
@@ -103,7 +161,7 @@ sub _build_data {
         die $_ unless $self->is_relaxed;
         chomp(my $error = $_);
         $error =~ s{\s+at\s+\S+\s+line\s+\d+.*}{};
-        warn "$0: Warning: Cannot read profile '$file': $error\n";
+        log_warn { "cannot read profile '$file': $error" };
         return {};
     };
 }
@@ -131,15 +189,15 @@ sub source {
 sub add_source {
     my ($self, $name, $target) = @_;
     $name = lc $name;
-    die "$0: Source names can only contain 'a-z', '0-9', '-' and '_'\n"
+    fail "source names can only contain 'a-z', '0-9', '-' and '_'"
         if $name =~ m{[^a-z0-9_-]};
     if (my $existing = $self->source($name)) {
-        die "$0: You are already subscribed to a source named "
-            . "'$name':\n  " . $existing->target . "\n";
+        fail "you are already subscribed to a source named "
+            . "'$name':\n  " . $existing->target;
     }
     if (my $existing = $self->find_source_by_target($target)) {
-        die "$0: Your subscription to '" . $existing->name . "' "
-            . "already updates from $target\n";
+        fail "your subscription to '" . $existing->name . "' "
+            . "already updates from $target";
     }
     my $source = Source->new(
         name    => $name,
@@ -182,17 +240,17 @@ sub as_json {
 
 sub store {
     my ($self) = @_;
-    die "$0: Cannot store a readonly profile\n"
+    fail "cannot store a readonly profile"
         if $self->is_readonly;
     my $file = $self->file;
     unless (-e $file) {
-        warn "Initializing profile '$file'\n";
+        log_info { "initializing profile '$file'" };
         assert_path dirname $file;
     }
     my $body = $self->as_json;
     my $fh = $file->$_open('write');
     print $fh $body
-        or die "$0: Unable to write content of profile '$file': $!\n";
+        or fail "Unable to write content of profile '$file': $!";
     $fh->$_close($file);
     return 1;
 }

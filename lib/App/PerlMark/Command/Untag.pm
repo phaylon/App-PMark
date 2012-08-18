@@ -2,6 +2,7 @@ package App::PerlMark::Command::Untag;
 use Moo;
 use List::Util          qw( max );
 use App::PerlMark::Util qw( textblock );
+use Log::Contextual     qw( :log );
 
 extends 'App::Cmd::Command';
 
@@ -67,9 +68,12 @@ sub execute {
 sub _untag_plain {
     my ($self, $name, $module, @tags) = @_;
     my @removed = grep { $module->untag($_) } @tags;
-    printf "%s: %s\n", $name, @removed
-        ? sprintf('Removed tags [%s]', join ' ', @removed)
-        : 'Nothing to untag';
+    log_info {
+        my $word = @removed == 1 ? 'tag' : 'tags';
+        @removed
+        ? "removed $word [@removed] from module $name"
+        : "nothing to remove from module $name",
+    };
     return 1;
 }
 
@@ -78,12 +82,16 @@ sub _untag_all_versions {
     my $count = 0;
     for my $version ($module->versions) {
         my @removed = grep { $version->untag($_) } @tags;
-        printf "$name %s: %s\n", $version->version, @removed
-            ? sprintf('Removed tags [%s]', join ' ', @removed)
-            : 'Nothing to untag';
+        my $word = @removed == 1 ? 'tag' : 'tags';
+        log_info {
+            my $vstring = $version->version;
+            @removed
+            ? "removed $word [@removed] from module $name ($vstring)"
+            : "nothing to untag from module $name ($vstring)";
+        };
         $count++;
     }
-    print "No specific $name versions found\n"
+    log_info { "module $name has no version-specific data" }
         unless $count;
     return 1;
 }
@@ -91,14 +99,17 @@ sub _untag_all_versions {
 sub _untag_by_versions {
     my ($self, $option, $name, $module, @tags) = @_;
     my $options = $self->options;
-    for my $version_string (@{$options->with_version}) {
-        my $version = $module->has_version($version_string);
-        print "Unknown $name version '$version_string'\n" and next
+    for my $vstring (@{$options->with_version}) {
+        my $version = $module->has_version($vstring);
+        log_warn { "unknown version for module $name '$vstring" }
             unless $version;
         my @removed = grep { $version->untag($_) } @tags;
-        printf "$name %s: %s\n", $version_string, @removed
-            ? sprintf('Removed tags [%s]', join ' ', @removed)
-            : 'Nothing to untag';
+        log_info {
+            my $word = @removed == 1 ? 'tag' : 'tags';
+            @removed
+            ? "removed $word [@removed] from module $name ($vstring)"
+            : "nothing to untag from module $name ($vstring)";
+        };
     }
     return 1;
 }

@@ -2,6 +2,7 @@ package App::PerlMark::Command::Unrecommend;
 use Moo;
 use App::PerlMark::Util qw( textblock );
 use List::Util          qw( max );
+use Log::Contextual     qw( :log );
 
 extends 'App::Cmd::Command';
 
@@ -32,20 +33,23 @@ sub description {
 sub examples {
     ['unrecommend Foo and Bar::Baz', 'Foo Bar::Baz'],
 }
+
 sub execute {
     my ($self, $profile, $option, @modules) = @_;
     my $max_len = max map length, @modules;
     for my $name (@modules) {
         my $module = $profile->has_module($name);
         unless ($module) {
-            printf "%-${max_len}s is an unknown module\n", $name;
+            log_warn { "unknown module $name" };
             next;
         }
         my $removed = $module->recommended;
         $module->recommended(0);
-        printf "%-${max_len}s %s\n",
-            $name,
-            $removed ? '--' : 'is not recommended';
+        log_info {
+            $removed
+            ? "$name--"
+            : "module $name is not yet recommended";
+        };
     }
     return 1;
 }

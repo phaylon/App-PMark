@@ -3,12 +3,11 @@ use Moo::Role;
 
 use aliased 'App::PerlMark::Profile::Module';
 
-has module_map => (is => 'lazy');
-
-sub _build_module_map { {} }
+has module_map => (is => 'rwp', lazy => 1, builder => 1);
 
 sub modules {
     my ($self) = @_;
+    $self->module_map;
     return values %{$self->module_map};
 }
 

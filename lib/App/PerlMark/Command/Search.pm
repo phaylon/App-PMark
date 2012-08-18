@@ -107,9 +107,9 @@ sub execute {
             $self->show_info($profile, $name);
         }
         else {
-            printf "%-${max_len}s  %6s  %s\n",
+            printf "%-${max_len}s  %4s  %s\n",
                 $name,
-                $score ? "(+$score)" : '',
+                $score ? "+$score" : '',
                 @tags  ? join(' ', map {
                     my ($name, $count) = @$_;
                     $count > 1 ? sprintf('%s(%d)', $name, $count) : $name;

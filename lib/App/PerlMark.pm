@@ -2,6 +2,8 @@ package App::PerlMark;
 use Moo;
 use Module::Runtime             qw( use_module );
 use List::Util                  qw( max );
+use Log::Contextual             qw( set_logger );
+use Log::Dispatch;
 
 extends 'App::Cmd';
 
@@ -20,6 +22,7 @@ sub usage_desc { '%c <command> %o <arguments>...' }
 
 sub global_opt_spec {
     ['version|V', 'print versions and exit'],
+    ['debug|D',   'enable debugging output'],
 }
 
 my @_version_modules = qw(
@@ -48,6 +51,26 @@ before execute_command => sub {
         $self->show_versions;
         exit;
     }
+    my %prefix = (
+        debug   => '[debug]',
+        warning => 'Warning:',
+    );
+    set_logger(Log::Dispatch->new(
+        callbacks => sub {
+            my %arg = @_;
+            return join ' ',
+                $prefix{$arg{level}} || (),
+                $arg{message};
+        },
+        outputs => [
+            ['Screen',
+                newline     => 1,
+                min_level   => $self->global_options->debug
+                    ? 'debug'
+                    : 'info',
+            ],
+        ],
+    ));
 };
 
 1;

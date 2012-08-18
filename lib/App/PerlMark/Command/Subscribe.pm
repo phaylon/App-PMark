@@ -1,7 +1,8 @@
 package App::PerlMark::Command::Subscribe;
 use Moo;
-use App::PerlMark::Util qw( textblock );
+use App::PerlMark::Util qw( textblock fail );
 use List::Util          qw( max );
+use Log::Contextual     qw( :log );
 
 extends 'App::Cmd::Command';
 
@@ -48,10 +49,10 @@ sub examples {
 sub execute {
     my ($self, $profile, $options, $name, $target) = @_;
     my $source = $profile->add_source($name, $target);
-    printf "Added subscription for '%s'\n", $name;
-    printf "Updating from %s\n", $target;
+    log_info { "added subscription for '$name'" };
+    log_info { "updating source '$name' from '$target'" };
     my $error = $source->update;
-    $self->fail("Unable to subscribe to and update from $target: $error")
+    fail "unable to subscribe to and update from $target: $error"
         if $error;
     return 1;
 }

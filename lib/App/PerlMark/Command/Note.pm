@@ -1,7 +1,8 @@
 package App::PerlMark::Command::Note;
 use Moo;
-use App::PerlMark::Util qw( textblock );
+use App::PerlMark::Util qw( textblock fail );
 use File::Temp;
+use Log::Contextual     qw( :log );
 
 extends 'App::Cmd::Command';
 
@@ -75,25 +76,30 @@ sub _add_note_to {
             for my $version_string (@$versions) {
                 my $version = $module->version($version_string);
                 my $note = $version->add_note($text);
-                printf "Added note %s to %s (%s)\n",
+                log_info { sprintf 'added note %s to %s (%s)',
                     $note->id,
                     $name,
-                    $version_string;
+                    $version_string,
+                };
                 $is_set++;
             }
         }
         if ($option->with_current_version) {
             my $version = $module->current_version;
             my $note = $version->add_note($text);
-            printf "Added note %s to %s (%s)\n",
+            log_info { sprintf 'added note %s to %s (%s)',
                 $note->id,
                 $name,
-                $version->version;
+                $version->version,
+            };
             $is_set++;
         }
         unless ($is_set) {
             my $note = $module->add_note($text);
-            printf "Added note %s to %s\n", $note->id, $name;
+            log_info { sprintf 'added note %s to %s',
+                $note->id,
+                $name,
+            };
         }
     }
     return 1;
@@ -110,11 +116,11 @@ sub _find_note_text {
 sub _note_from_editor {
     my ($self) = @_;
     my $editor = $ENV{EDITOR};
-    die "$0: Environment variable EDITOR is not set\n"
+    fail "environment variable EDITOR is not set"
         unless defined $editor and length $editor;
     my $file  = File::Temp->new;
     my $error = system($editor, $file->filename);
-    die "$0: Editor returned with non-zero exit value\n"
+    fail "editor returned with non-zero exit value"
         if $error;
     my $answer = '';
     do {
@@ -122,11 +128,11 @@ sub _note_from_editor {
         chomp( $answer = <STDIN> );
     } until $answer eq 'y' or $answer eq 'n';
     if ($answer eq 'n') {
-        print "Note not added\n";
+        log_info { 'the note was discarded' };
         exit;
     }
     open my $fh, '<:utf8', $file->filename
-        or die "$0: Could not read tempfile for note '$file': $!\n";
+        or fail "could not read tempfile for note '$file': $!";
     return do { local $/; <$fh> };
 }
 

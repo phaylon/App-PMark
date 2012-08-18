@@ -2,6 +2,7 @@ package App::PerlMark::Command::Recommend;
 use Moo;
 use App::PerlMark::Util qw( textblock );
 use List::Util          qw( max );
+use Log::Contextual     qw( :log );
 
 extends 'App::Cmd::Command';
 
@@ -46,17 +47,18 @@ sub description {
 
 sub execute {
     my ($self, $profile, $option, @modules) = @_;
-    my $max_len = max map length, @modules;
     my @tags = @{$option->{tag}||[]};
     for my $name (@modules) {
         my $module = $profile->module($name);
         my $added  = !$module->recommended;
         $module->recommended(1);
-        printf "%-${max_len}s %s\n",
-            $name,
-            $added ? '++' : 'is already recommended';
+        log_info {
+            $added
+            ? "$name++"
+            : "module $name is already recommended";
+        };
         my @added = grep { $module->tag($_) } @tags;
-        printf "  Added tags: %s\n", join ', ', @added
+        log_info { "added tags [@added] to module $name" }
             if @added;
     }
     return 1;

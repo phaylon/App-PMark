@@ -1,7 +1,7 @@
 package App::PerlMark::Profile::Source;
 use Moo;
 use File::Spec;
-use App::PerlMark::Util qw( ssh_remote assert_path );
+use App::PerlMark::Util qw( ssh_remote assert_path fail );
 use Object::Remote;
 use Try::Tiny;
 use HTTP::Tiny;
@@ -9,7 +9,7 @@ use HTTP::Tiny;
 has path    => (is => 'lazy');
 has file    => (is => 'lazy');
 has name    => (is => 'ro', required => 1);
-has target  => (is => 'ro', required => 1);
+has target  => (is => 'rw', required => 1);
 has profile => (is => 'lazy');
 has parent  => (is => 'ro', required => 1, weak_ref => 1);
 
@@ -41,7 +41,7 @@ sub _build_profile {
     my $profile = App::PerlMark::Profile->new(
         is_readonly => 1,
         is_relaxed  => 1,
-        path        => $self->path,
+        file        => $self->file,
     );
     return $profile;
 }
@@ -85,7 +85,6 @@ sub _update_from_ssh {
             ->new::on($remote_target, path => $remote_path);
 #    my $cb = App::PerlMark::Util->can::on($remote_target, 'read_file');
 #    my ($body, $error) = $cb->($remote_path, '<:utf8');
-        warn "READ LOCAL $remote_target $remote_path";
         $self->_write_json($file->read_all);
         return undef;
     }
@@ -99,7 +98,7 @@ sub _write_json {
     my $file = $self->file;
     assert_path $self->path;
     open my $fh, '>:utf8', $file
-        or die "$0: Unable to write profile for '%s' source '%s': %s\n",
+        or fail sprintf "unable to write profile for '%s' source '%s': %s",
         $self->name, $file, $!;
     print $fh $json;
     return 1;

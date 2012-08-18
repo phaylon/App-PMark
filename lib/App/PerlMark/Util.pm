@@ -4,6 +4,7 @@ package App::PerlMark::Util;
 use File::Path      qw( make_path );
 use File::Basename;
 use Exporter        qw( import );
+use Module::Runtime qw( use_module );
 
 our @EXPORT_OK = qw(
     patterns_to_regexps
@@ -12,7 +13,12 @@ our @EXPORT_OK = qw(
     open_file
     assert_path
     textblock
+    fail
 );
+
+sub fail {
+    use_module('App::PerlMark::Exception')->throw(join '', @_);
+}
 
 sub textblock {
     my ($text) = @_;
@@ -28,9 +34,8 @@ sub assert_path {
     my ($path) = @_;
     make_path $path, { error => \my $errors };
     if ($errors and @$errors) {
-        warn sprintf "Unable to create directory '%s': %s\n", %$_
-            for @$errors;
-        exit 1;
+        fail sprintf "unable to create directory '%s': %s",
+            %{ $errors->[0] };
     }
     return 1;
 }
@@ -62,9 +67,9 @@ sub ssh_remote {
     return undef
         unless $string =~ s{^ssh://}{};
     my ($remote, $path) = split m{:}, $string, 2;
-    die "$0: SSH remote '$orig' is missing a file path element\n"
+    fail "SSH remote '$orig' is missing a file path element"
         unless defined $path and length $path;
-    die "$0: SSH remote '$orig' is missing a remote specification\n"
+    fail "SSH remote '$orig' is missing a remote specification"
         unless defined $remote and length $remote;
     return [$remote, $path];
 }
@@ -95,7 +100,7 @@ sub pattern_to_regexp {
             push @parts, $ignore_case ? qr{\Q$1\E} : qr{\Q$1\E}i;
         }
         else {
-            die "$0: Unable to parse '...$pattern' in '$orig'\n";
+            fail "unable to parse '...$pattern' in '$orig'";
         }
     }
     my $body = join '', @parts;

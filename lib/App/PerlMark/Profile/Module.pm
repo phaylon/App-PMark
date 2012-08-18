@@ -2,6 +2,7 @@ package App::PerlMark::Profile::Module;
 use Moo;
 use Module::Metadata;
 use List::MoreUtils     qw( uniq );
+use App::PerlMark::Util qw( fail );
 
 use aliased 'App::PerlMark::Profile::Module::Version';
 
@@ -18,6 +19,25 @@ sub TO_JSON {
         version_map => $self->version_map,
         note_map    => $self->note_map,
     }};
+}
+
+sub merge_with {
+    my ($self, $other_module) = @_;
+    $self->recommended($other_module->recommended);
+    $self->merge_tags_with($other_module);
+    $self->merge_notes_with($other_module);
+    $self->merge_versions_with($other_module);
+    return 1;
+}
+
+sub merge_versions_with {
+    my ($self, $other_module) = @_;
+    for my $other_version ($other_module->versions) {
+        my $version = $self->version($other_version->version);
+        $version->merge_tags_with($other_version);
+        $version->merge_notes_with($other_version);
+    }
+    return 1;
 }
 
 sub versions {
@@ -37,17 +57,17 @@ sub current_version {
     my $module = $self->name;
     my $meta = Module::Metadata
         ->new_from_module($module, collect_pod => 0);
-    die "Module $module does not seem to be installed\n"
+    fail "module $module does not seem to be installed"
         unless $meta;
     my $version = $meta->version($module);
-    die "Unable to find a version for module '$module'\n"
+    fail "unable to find a version for module '$module'"
         unless defined($version) and length($version);
     return $self->version($version);
 }
 
 sub version {
     my ($self, $version) = @_;
-    die "$0: Version string cannot be empty\n"
+    fail "version string cannot be empty"
         unless length $version;
     return $self->version_map->{$version}
         ||= Version->new(version => "$version");

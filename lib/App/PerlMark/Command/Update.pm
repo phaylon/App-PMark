@@ -1,6 +1,7 @@
 package App::PerlMark::Command::Update;
 use Moo;
-use App::PerlMark::Util qw( textblock );
+use App::PerlMark::Util qw( textblock fail );
+use Log::Contextual     qw( :log );
 
 extends 'App::Cmd::Command';
 
@@ -31,13 +32,21 @@ sub examples {
 
 sub execute {
     my ($self, $profile, $options, @names) = @_;
-    my @sources = $self->_find_sources($profile, @names)
-        or print "No subscriptions to update\n" and return;
+    my @sources = $self->_find_sources($profile, @names);
+    unless (@sources) {
+        log_info { "no subscriptions to update" };
+        return;
+    }
     for my $source (@sources) {
-        printf "Updating '%s' from %s\n", $source->name, $source->target;
+        log_info { sprintf q!updating source '%s' from '%s'!,
+            $source->name,
+            $source->target,
+        };
         my $error = $source->update;
-        warn "  Error: $error\n"
-            if $error;
+        log_warn { sprintf q!unable to update source '%s': %s!,
+            $source->name,
+            $error
+        } if $error;
     }
     return 1;
 }
@@ -47,7 +56,7 @@ sub _find_sources {
     if (@names) {
         return map {
             $profile->source($_)
-                or die "$0: Unknown source '$_'\n";
+                or fail "unknown source '$_'";
         } sort @names;
     }
     return sort { $a->name cmp $b->name } $profile->sources;

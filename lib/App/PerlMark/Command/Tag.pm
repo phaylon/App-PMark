@@ -2,6 +2,7 @@ package App::PerlMark::Command::Tag;
 use Moo;
 use App::PerlMark::Util qw( textblock );
 use List::Util          qw( max );
+use Log::Contextual     qw( :log );
 
 extends 'App::Cmd::Command';
 
@@ -45,22 +46,26 @@ sub execute {
         unless @tags;
     my $module = $profile->module($module_name);
     my $is_set;
-    if (defined( my $versions = $options->wwith_version )) {
+    if (defined( my $versions = $options->with_version )) {
         for my $version_string (@$versions) {
             my $version = $module->version($version_string);
-            printf "%s (%s):\n", $module_name, $version_string;
+            log_info {
+                "adding tags to module $module_name ($version_string)";
+            };
             $self->_add_tags($version, @tags);
             $is_set++;
         }
     }
     if ($options->with_current_version) {
         my $version = $module->current_version;
-        printf "%s (%s):\n", $module_name, $version->version;
+        log_info { sprintf "adding tags to module $module_name (%s)",
+            $version->version,
+        };
         $self->_add_tags($version, @tags);
         $is_set++;
     }
     unless ($is_set) {
-        printf "%s (all versions):\n", $module_name;
+        log_info { "adding tags to module $module_name" };
         $self->_add_tags($module, @tags);
     }
     return 1;
@@ -71,9 +76,10 @@ sub _add_tags {
     my $max_len = max map length, @tags;
     for my $tag (@tags) {
         my $added = $target->tag($tag);
-        printf "  tag %-${max_len}s %s\n",
-            $tag,
-            $added ? 'created' : 'already exists';
+        log_info { join ' ',
+            "tag '$tag'",
+            ($added ? 'created' : 'already exists'),
+        };
     }
     return 1;
 }

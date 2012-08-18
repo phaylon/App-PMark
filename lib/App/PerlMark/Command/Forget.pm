@@ -2,6 +2,7 @@ package App::PerlMark::Command::Forget;
 use Moo;
 use App::PerlMark::Util qw( textblock );
 use List::Util          qw( max );
+use Log::Contextual     qw( :log );
 
 extends 'App::Cmd::Command';
 
@@ -39,9 +40,12 @@ sub execute {
     my $max_len = max map length, @modules;
     for my $name (@modules) {
         my $removed = $profile->remove_module($name);
-        printf "%-${max_len}s %s\n",
-            $name,
-            $removed ? 'forgotten' : 'is not yet known';
+        if ($removed) {
+            log_info { "removed all data about module $name" };
+        }
+        else {
+            log_warn { "no data available for module $name" };
+        }
     }
     return 1;
 }

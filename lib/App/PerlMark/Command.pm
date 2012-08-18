@@ -36,12 +36,6 @@ sub stores_profile { 0 }
 
 sub examples { () }
 
-sub fail {
-    my ($self, @msg) = @_;
-    my $msg = join '', @msg;
-    die "Error: $msg\n";
-}
-
 around description => sub {
     my ($orig, $self, @args) = @_;
     my $command     = ($self->command_names)[0];
@@ -96,11 +90,13 @@ sub _make_profile {
     my $path = $options->profile;
     if (my $remote = ssh_remote $path) {
         my ($remote_target, $remote_path) = @$remote;
+        my $remote_file = File::Spec
+            ->catfile($remote_path, 'profile.json');
         return App::PerlMark::Profile
-            ->new::on($remote_target, path => $remote_path);
+            ->new::on($remote_target, file => $remote_file);
     }
-    return App::PerlMark::Profile
-        ->new(path => $path);
+    my $file = File::Spec->catfile($path, 'profile.json');
+    return App::PerlMark::Profile->new(file => $file);
 }
 
 1;

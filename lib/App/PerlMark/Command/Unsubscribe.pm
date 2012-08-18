@@ -1,6 +1,7 @@
 package App::PerlMark::Command::Unsubscribe;
 use Moo;
 use App::PerlMark::Util qw( textblock );
+use Log::Contextual     qw( :log );
 
 extends 'App::Cmd::Command';
 
@@ -32,9 +33,13 @@ sub examples {
 sub execute {
     my ($self, $profile, $option, @names) = @_;
     for my $name (@names) {
-        my $removed = $profile->remove_source($name)
-            or warn "Not subscribed to any source named '$name'\n";
-        print "Removed subscription to source '$name'\n";
+        my $removed = $profile->remove_source($name);
+        if ($removed) {
+            log_info { "removed subscription to source '$name'" };
+        }
+        else {
+            log_warn { "not subscribed to any source named '$name'" };
+        }
     }
     return 1;
 }

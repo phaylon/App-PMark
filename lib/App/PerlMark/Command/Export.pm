@@ -1,7 +1,7 @@
 package App::PerlMark::Command::Export;
 use Moo;
 use File::Basename;
-use App::PerlMark::Util qw( ssh_remote assert_path textblock );
+use App::PerlMark::Util qw( ssh_remote assert_path textblock fail );
 
 extends 'App::Cmd::Command';
 
@@ -59,7 +59,7 @@ sub _export_to_file {
     assert_path dirname $file
         if $option->{mkpath};
     open my $fh, '>:utf8', $file
-        or die "$0: Unable to export to file '$file': $!\n";
+        or fail "unable to export to file '$file': $!";
     print $fh $profile->as_json;
 }
 
@@ -69,7 +69,7 @@ sub _export_via_ssh {
     my ($fh, $error) = App::PerlMark::Util
         ->can::on($remote_target, 'open_file')
         ->($remote_path, '>:utf8', mkpath => $option->{mkpath});
-    die sprintf "$0: Unable to export to file '%s' on %s: %s\n",
+    fail sprintf "unable to export to file '%s' on %s: %s",
         $remote_path, $remote_target, $error,
         if $error;
     print $fh $profile->as_json;
