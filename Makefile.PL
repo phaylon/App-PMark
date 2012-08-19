@@ -5,9 +5,9 @@ use ExtUtils::MakeMaker;
 (do 'maint/Makefile.PL.include' or die $@) unless -f 'META.yml';
 
 WriteMakefile(
-  NAME          => 'App-PerlMark',
-  VERSION_FROM  => 'lib/App/PerlMark.pm',
-  EXE_FILES     => ['bin/perlmark'],
+  NAME          => 'App-PMark',
+  VERSION_FROM  => 'lib/App/PMark.pm',
+  EXE_FILES     => ['bin/pmark'],
   PREREQ_PM     => {
     'aliased'               => '0.30',
     'Digest::SHA::PurePerl' => '5.71',

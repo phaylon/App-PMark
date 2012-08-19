@@ -1,0 +1,212 @@
+#!/usr/bin/env perl
+use strictures 1;
+use App::PMark;
+App::PMark->run;
+
+__END__
+
+=head1 NAME
+
+pmark - Distributed recommendations, tags and notes for modules
+
+=head1 USAGE
+
+    pmark <command> [<options>...] <arguments>...
+
+Information about options and arguments to individual commands can be
+found in the help screen of the respective commands. See L</help>.
+
+=head2 Your Profile
+
+The location of your global default home directory is automatically
+determined from your system type (by L<File::HomeDir>).
+
+You can pass a C<--profile> option, or set the C<PERLMARK_PROFiLE>
+environment variable to point to another place to store the profile data.
+This needs to be a directory, but can also be an SSH location in the form
+of C<ssh://[E<lt>userE<gt>@]E<lt>hostE<gt>:E<lt>pathE<gt>>.
+
+=head2 Search Patterns
+
+The L</tags> and L</search> commands take a set of patterns to match
+against their queried data. The following meta-characters are supported at
+the moment: C<%> signifying string start and end, depending on position;
+C<*> meaning zero or more instances of any kind of character; and C<+>
+meaning one or more instances of any kind of character.
+
+=head1 COMMANDS
+
+=head2 help
+
+    pmark help
+    pmark help <command>
+
+This command will give you a list of available commands when given no
+arguments. If you give it the name of a command, it will show you the
+usage information for that command.
+
+=head2 recommend
+
+    pmark recommend <modules>...
+
+This will mark the given modules as recommended. Already recommended
+modules will not be changed. 
+
+See C<pmark help recommend> for more information.
+
+=head2 unrecommend
+
+    pmark unrecommend <modules>...
+
+This command will remove module recommendations. If the modules are not
+recommended yet, nothing will be changed.
+
+See C<pmark help unrecommend> for more information.
+
+=head2 search
+
+    pmark search
+    pmark search <patterns>...
+
+This command will search the list of known modules and display results. It
+can give concise lists or expanded information.
+
+See C<pmark help search> for more information.
+
+=head2 info
+
+    pmark info <modules>...
+
+Shows all known information about the given module names. See L</search>
+for finding modules by patterns instead of full modules names.
+
+See C<pmark help info> for more information.
+
+=head2 note
+
+    pmark note <modules>...
+
+Allows you to attach notes to modules and specific module versions. The
+notes will have content-digest IDs.
+
+See C<pmark help note> for more information.
+
+=head2 rm-notes
+
+    pmark rm-notes <note-identifiers>...
+
+This command removes notes from modules and specific versions by their
+content-digest IDs.
+
+See C<pmark help rm-notes> for more information.
+
+=head2 tag
+
+    pmark tag <module> <tags>...
+
+Attaches tags to modules and specific module versions. Already attached
+tags will be skipped.
+
+See C<pmark help tag> for more information.
+
+=head2 untag
+
+    pmark untag <module> <tags>...
+
+Removes tags from modules and specific module versions.
+
+See C<pmark help untag> for more information.
+
+=head2 tags
+
+    pmark tags
+    pmark tags <patterns>...
+
+Searches the list of available tags, or gives you the full list if no
+patterns are specified.
+
+See C<pmark help tags> for more information.
+
+=head2 export
+
+    pmark export <target>
+
+Exports your current profile to a specific location.
+
+See C<pmark help export> for more information.
+
+=head2 import
+
+    pmark import <target>
+    pmark import --override <target>
+
+Imports external profile data into your current profile.
+
+See C<pmark help import> for more information.
+
+=head2 subscribe
+
+    pmark subscribe <name> <target>
+
+Adds a subscription to an external profile. The data of the external
+profile will be included in relevant places when querying for information.
+
+The external data will be cached, so after an update has happened no
+connection is required to query the information.
+
+See C<pmark help subscribe> for more information.
+
+=head2 unsubscribe
+
+    pmark unsubscribe <names>...
+
+Removes the named external profile subscriptions. They will no longer be
+included when querying for data.
+
+See C<pmark help unsubscribe> for more information.
+
+=head2 sources
+
+    pmark sources
+    pmark sources --discover
+
+Will give you a list of external profile sources you are currently
+subscribed to. The C<--discover> option will search for sources you are
+not yet subscribed to.
+
+See C<pmark help sources> for more information.
+
+=head2 update
+
+    pmark update
+    pmark update <names>...
+
+Will update the locally cached versions of the named (or all, if none are
+named) external profile sources.
+
+See C<pmark help update> for more information.
+
+=head2 forget
+
+    pmark forget <modules>...
+
+Removes all information about the given modules. This includes tags,
+notes, recommendations and version specific data.
+
+See C<pmark help forget> for more information.
+
+=head1 AUTHOR
+
+Robert Sedlacek <rs@474.at>
+
+=head1 COPYRIGHT
+
+Copyright (c) 2012 the App::PMark L</AUTHOR> and L</CONTRIBUTORS>
+as listed above.
+
+=head1 LICENSE
+
+This library is free software and may be distributed under the same terms
+as perl itself.
+
+=cut
