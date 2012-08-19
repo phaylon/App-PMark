@@ -81,35 +81,17 @@ __END__
 
 App::PerlMark - Distributed module recommendations, notes and tags
 
-=head1 SYNOPSIS
-
 =head1 DESCRIPTION
 
-=head1 COMMANDS
+The L<perlmark> command provides the interface for managing a profile of
+recommended modules, tags and notes.
 
-=head2 help
+This profile data can be exported and subscribed to. When you query for
+module information, the data these subscriptions provide will be taken
+into account.
 
-=head2 recommend
-=head2 unrecommend
-
-=head2 search
-=head2 info
-
-=head2 note
-=head2 rm-notes
-
-=head2 tag
-=head2 untag
-=head2 tags
-
-=head2 export
-
-=head2 subscribe
-=head2 unsubscribe
-=head2 sources
-=head2 update
-
-=head2 forget
+See L<perlmark> for more information. Detailed documentation is accessible
+by running C<perlmark help> and C<perlmark help E<lt>commandE<gt>>.
 
 =head1 AUTHOR
 
