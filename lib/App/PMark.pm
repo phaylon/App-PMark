@@ -27,10 +27,10 @@ sub global_opt_spec {
 
 my @_version_modules = qw(
     App::PMark
-    Object::Remote
     CPS::Future
-    Module::Runtime
     File::HomeDir
+    Module::Runtime
+    Object::Remote
 );
 
 sub show_versions {
@@ -41,7 +41,7 @@ sub show_versions {
         for ['perl', $perl_version],
             map [$_, $_->VERSION],
             map use_module($_),
-            sort @_version_modules;
+            @_version_modules;
     return 1;
 };
 
