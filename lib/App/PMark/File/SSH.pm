@@ -10,10 +10,11 @@ use overload fallback => 1,
 
 use aliased 'App::PMark::File::Local';
 
-has remote  => (is => 'ro', required => 1);
-has path    => (is => 'ro', required => 1);
+has remote      => (is => 'ro', required => 1);
+has path        => (is => 'ro', required => 1);
+has connected   => (is => 'ro', lazy => 1, builder => 1);
 
-sub _connected {
+sub _build_connected {
     my ($self) = @_;
     log_debug { sprintf q!connecting to '%s'!, $self->remote };
     return Local->new::on($self->remote, path => $self->path);
@@ -25,7 +26,7 @@ sub get {
         $self->path,
         $self->remote,
     };
-    return $self->_connected->get;
+    return $self->connected->get;
 }
 
 sub put {
@@ -34,18 +35,12 @@ sub put {
         $self->path,
         $self->remote,
     };
-    return $self->_connected->put($content);
+    return $self->connected->put($content);
 }
 
 sub sibling {
     my ($self, @path) = @_;
-    return ref($self)->new(
-        remote  => $self->remote,
-        path    => File::Spec->catfile(
-            dirname($self->path),
-            @path,
-        ),
-    );
+    return $self->connected->sibling(@path);
 }
 
 with 'App::PMark::File';
