@@ -46,12 +46,22 @@ sub make_file {
                 ->new(remote => $1, path => $2);
         }
         else {
-            fail "Invalid SSH remote specification '$remote'";
+            fail "invalid SSH remote specification '$remote'";
         }
     }
     elsif ($spec =~ m{^http://}) {
         return use_module('App::PMark::File::HTTP')
             ->new(uri => $spec);
+    }
+    elsif ($spec =~ m{^ftp://(.+)$}) {
+        my $remote = $1;
+        if ($remote =~ m{^ (?: ([^/@]+) \@)? ([^/@]+) (/.+) $}x) {
+            return use_module('App::PMark::File::FTP')
+                ->new(username => $1, hostname => $2, path => $3);
+        }
+        else {
+            fail "invalid FTP remote specification '$remote'";
+        }
     }
     elsif ($spec eq '-') {
         return use_module('App::PMark::File::StdIO')->new;
