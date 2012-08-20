@@ -18,7 +18,7 @@ found in the help screen of the respective commands. See L</help>.
 
 =head2 Your Profile
 
-The location of your global default home directory is automatically
+The location of your global default profile directory is automatically
 determined from your system type (by L<File::HomeDir>).
 
 You can pass a C<--profile> option, or set the C<PERLMARK_PROFiLE>
