@@ -34,7 +34,7 @@ sub fail {
 }
 
 sub coerce_file {
-    return sub { make_file(@_) };
+    return sub { ref($_[0]) ? $_[0] : make_file($_[0]) };
 }
 
 sub make_file {
@@ -52,6 +52,9 @@ sub make_file {
     elsif ($spec =~ m{^http://}) {
         return use_module('App::PMark::File::HTTP')
             ->new(uri => $spec);
+    }
+    elsif ($spec eq '-') {
+        return use_module('App::PMark::File::StdIO')->new;
     }
     else {
         return use_module('App::PMark::File::Local')

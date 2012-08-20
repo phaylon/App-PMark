@@ -1,7 +1,7 @@
 package App::PMark::Command::Export;
 use Moo;
 use File::Basename;
-use App::PMark::Util qw( ssh_remote assert_path textblock fail );
+use App::PMark::Util qw( make_file textblock );
 
 extends 'App::Cmd::Command';
 
@@ -43,43 +43,9 @@ sub examples {
 
 sub execute {
     my ($self, $profile, $option, $target) = @_;
-    if ($target eq '-') {
-        $self->_export_to_stdout($profile);
-    }
-    elsif (my $remote = ssh_remote $target) {
-        $self->_export_via_ssh($profile, $option, $remote);
-    }
-    else {
-        $self->_export_to_file($profile, $option, $target);
-    }
-}
-
-sub _export_to_file {
-    my ($self, $profile, $option, $file) = @_;
-    assert_path dirname $file
-        if $option->{mkpath};
-    open my $fh, '>:utf8', $file
-        or fail "unable to export to file '$file': $!";
-    print $fh $profile->as_json;
-}
-
-sub _export_via_ssh {
-    my ($self, $profile, $option, $remote) = @_;
-    my ($remote_target, $remote_path) = @$remote;
-    my ($fh, $error) = App::PMark::Util
-        ->can::on($remote_target, 'open_file')
-        ->($remote_path, '>:utf8', mkpath => $option->{mkpath});
-    fail sprintf "unable to export to file '%s' on %s: %s",
-        $remote_path, $remote_target, $error,
-        if $error;
-    print $fh $profile->as_json;
-}
-
-sub _export_to_stdout {
-    my ($self, $profile) = @_;
-    my $json = $profile->as_json;
-    chomp $json;
-    print "$json\n";
+    make_file($target)->put($profile->file->get);
+    print "\n";
+    return 1;
 }
 
 with qw(

@@ -1,6 +1,6 @@
 package App::PMark::Command::Import;
 use Moo;
-use App::PMark::Util qw( ssh_remote assert_path textblock fail );
+use App::PMark::Util qw( make_file ssh_remote assert_path textblock fail );
 use File::Basename;
 use File::Temp;
 use HTTP::Tiny;
@@ -34,6 +34,7 @@ sub examples {
 sub execute {
     my ($self, $profile, $option, $target) = @_;
     my $import = $self->_find_target_profile($target);
+    $import->modules;
     my $method = $option->override
         ? '_import_override'
         : '_import_merge';
@@ -54,20 +55,7 @@ sub _import_merge {
 
 sub _find_target_profile {
     my ($self, $target) = @_;
-    if (my $remote = ssh_remote $target) {
-        return Profile->new::on($remote->[0], file => $remote->[1]);
-    }
-    elsif ($target =~ m{^https?://}) {
-        my $temp = File::Temp->new;
-        my $res = HTTP::Tiny->new->mirror($target, "$temp");
-        fail sprintf "Unable to fetch '%s' (%s): %s",
-            $target, @{ $res }{qw( status reason )}
-            unless $res->{success};
-        return Profile->new(file => $temp);
-    }
-    else {
-        return Profile->new(file => $target);
-    }
+    return Profile->new(file => make_file($target));
 }
 
 with qw(
