@@ -63,7 +63,7 @@ sub _show_unsubscribed {
         grep { not $known{$_->target} }
             $source->profile->sources;
     } @sources;
-    print "No unsubscribed sources available\n" and return
+    print "no unsubscribed sources available\n" and return
         unless @full_map;
     my $max_len = 1 + (max(map length($_->[0]), @full_map) || 0);
     printf "%-${max_len}s %s\n", $_->[0] . ':', $_->[1]
@@ -74,7 +74,7 @@ sub _show_unsubscribed {
 sub _show_subscribed {
     my ($self, $profile) = @_;
     my @sources = sort { $a->name cmp $b->name } $profile->sources
-        or print "Not subscribed to any sources\n" and return;
+        or print "not subscribed to any sources\n" and return;
     my $max_len = 1 + (max(map length($_->name), @sources) || 0);
     printf "%-${max_len}s %s\n", $_->name . ':', $_->target
         for @sources;

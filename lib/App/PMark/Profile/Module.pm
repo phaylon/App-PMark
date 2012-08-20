@@ -2,7 +2,7 @@ package App::PMark::Profile::Module;
 use Moo;
 use Module::Metadata;
 use List::MoreUtils     qw( uniq );
-use App::PMark::Util qw( fail );
+use App::PMark::Util    qw( fail );
 
 use aliased 'App::PMark::Profile::Module::Version';
 
@@ -79,7 +79,7 @@ sub all_tags {
     return uniq sort map { ($_->tags) } @versions, $self;
 }
 
-with qw(
+with $_ for qw(
     App::PMark::Profile::HasTags
     App::PMark::Profile::HasNotes
 );

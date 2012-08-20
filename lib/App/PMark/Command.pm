@@ -3,12 +3,12 @@ use Moo::Role;
 use File::Spec;
 use File::HomeDir;
 use App::PMark::Profile;
-use App::PMark::Util         qw( ssh_remote textblock );
+use App::PMark::Util        qw( ssh_remote textblock is_error );
 use Object::Remote;
+use Log::Contextual         qw( :log );
+use Try::Tiny;
 
-requires qw(
-    app
-);
+requires qw( app );
 
 my $_default_profile = $ENV{PERLMARK_PROFILE}
     || File::Spec->catdir(File::HomeDir->my_data, '.pmark');
@@ -59,10 +59,22 @@ around description => sub {
 
 around execute => sub {
     my ($orig, $self, $options, $args) = @_;
-    my $profile = $self->_make_profile($options);
-    $self->$orig($profile, $options, @$args);
-    $self->_post_execute($profile);
-    return 1;
+    return try {
+        log_debug { 'building profile' };
+        my $profile = $self->_make_profile($options);
+        log_debug { 'running command' };
+        $self->$orig($profile, $options, @$args);
+        log_debug { 'running post-execute hooks' };
+        $self->_post_execute($profile);
+        return 1;
+    }
+    catch {
+        if (is_error $_, 'App::PMark::Exception') {
+            printf "Error: %s\n", $_->message;
+            return 0;
+        }
+        die $_;
+    };
 };
 
 around opt_spec => sub {
@@ -70,7 +82,7 @@ around opt_spec => sub {
     my @specific = $self->$orig(@args);
     return (
         ['Generic Options:'],
-        [   'profile|p=s' => 'location of the profile directory',
+        [   'profile=s' => 'location of the profile directory',
             { default => $_default_profile },
         ],
         @specific
@@ -88,15 +100,7 @@ sub _post_execute { }
 sub _make_profile {
     my ($self, $options) = @_;
     my $path = $options->profile;
-    if (my $remote = ssh_remote $path) {
-        my ($remote_target, $remote_path) = @$remote;
-        my $remote_file = File::Spec
-            ->catfile($remote_path, 'profile.json');
-        return App::PMark::Profile
-            ->new::on($remote_target, file => $remote_file);
-    }
-    my $file = File::Spec->catfile($path, 'profile.json');
-    return App::PMark::Profile->new(file => $file);
+    return App::PMark::Profile->new(file => "$path/profile.json");
 }
 
 1;

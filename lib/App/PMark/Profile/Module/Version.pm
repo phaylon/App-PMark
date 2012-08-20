@@ -12,7 +12,7 @@ sub TO_JSON {
     }};
 }
 
-with qw(
+with $_ for qw(
     App::PMark::Profile::HasTags
     App::PMark::Profile::HasNotes
 );

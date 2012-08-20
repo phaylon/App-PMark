@@ -8,8 +8,8 @@ use overload
 has message => (is => 'ro', required => 1);
 
 sub throw {
-    my ($class, $message) = @_;
-    die $class->new(message => $message);
+    my ($class, $message, %arg) = @_;
+    die $class->new(message => $message, %arg);
 }
 
 1;

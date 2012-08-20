@@ -51,9 +51,7 @@ sub execute {
     my $source = $profile->add_source($name, $target);
     log_info { "added subscription for '$name'" };
     log_info { "updating source '$name' from '$target'" };
-    my $error = $source->update;
-    fail "unable to subscribe to and update from $target: $error"
-        if $error;
+    $source->update;
     return 1;
 }
 

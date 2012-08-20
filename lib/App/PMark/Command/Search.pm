@@ -1,7 +1,8 @@
 package App::PMark::Command::Search;
 use Moo;
-use App::PMark::Util qw( patterns_to_regexps textblock );
+use App::PMark::Util    qw( patterns_to_regexps textblock );
 use List::Util          qw( max );
+use Log::Contextual     qw( :log );
 
 extends 'App::Cmd::Command';
 
@@ -82,6 +83,7 @@ sub execute {
         @patterns,
     );
     my @names       = $self->query_all_module_names($profile);
+    log_debug { sprintf 'got %d module names', scalar @names };
     my $max_len     = max map length, @names;
     my $min_score   = $option->score;
     my $in_names    = $option->names;
@@ -119,7 +121,7 @@ sub execute {
     return 1;
 }
 
-with qw(
+with $_ for qw(
     App::PMark::Command
     App::PMark::Command::Role::ShowInfo
     App::PMark::Command::Role::DeepQuery

@@ -1,7 +1,8 @@
 package App::PMark::Command::Update;
 use Moo;
-use App::PMark::Util qw( textblock fail );
+use App::PMark::Util    qw( textblock fail );
 use Log::Contextual     qw( :log );
+use Try::Tiny;
 
 extends 'App::Cmd::Command';
 
@@ -38,15 +39,19 @@ sub execute {
         return;
     }
     for my $source (@sources) {
-        log_info { sprintf q!updating source '%s' from '%s'!,
-            $source->name,
-            $source->target,
-        };
-        my $error = $source->update;
-        log_warn { sprintf q!unable to update source '%s': %s!,
-            $source->name,
-            $error
-        } if $error;
+        try {
+            log_info { sprintf q!updating source '%s' from '%s'!,
+                $source->name,
+                $source->target,
+            };
+            $source->update;
+        }
+        catch {
+            log_warn { sprintf q!unable to update source '%s': %s!,
+                $source->name,
+                $_,
+            };
+        }
     }
     return 1;
 }

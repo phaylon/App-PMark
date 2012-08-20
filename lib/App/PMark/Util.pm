@@ -5,6 +5,7 @@ use File::Path      qw( make_path );
 use File::Basename;
 use Exporter        qw( import );
 use Module::Runtime qw( use_module );
+use Scalar::Util    qw( blessed );
 
 our @EXPORT_OK = qw(
     patterns_to_regexps
@@ -14,10 +15,48 @@ our @EXPORT_OK = qw(
     assert_path
     textblock
     fail
+    make_file
+    coerce_file
+    is_error
 );
+
+sub is_error {
+    my ($value, $class) = @_;
+    return undef
+        unless blessed $value;
+    $class = 'App::PMark::Exception'
+        unless defined $class;
+    return $value->isa($class);
+}
 
 sub fail {
     use_module('App::PMark::Exception')->throw(join '', @_);
+}
+
+sub coerce_file {
+    return sub { make_file(@_) };
+}
+
+sub make_file {
+    my ($spec) = @_;
+    if ($spec =~ m{^ssh://(.*)$}) {
+        my $remote = $1;
+        if ($remote =~ m{^([^:]+):(.+)$}) {
+            return use_module('App::PMark::File::SSH')
+                ->new(remote => $1, path => $2);
+        }
+        else {
+            fail "Invalid SSH remote specification '$remote'";
+        }
+    }
+    elsif ($spec =~ m{^http://}) {
+        return use_module('App::PMark::File::HTTP')
+            ->new(uri => $spec);
+    }
+    else {
+        return use_module('App::PMark::File::Local')
+            ->new(path => $spec);
+    }
 }
 
 sub textblock {

@@ -3,7 +3,7 @@ use Moo;
 use File::Basename;
 use File::Path          qw( make_path );
 use Fcntl               qw( :flock );
-use App::PMark::Util qw( assert_path fail );
+use App::PMark::Util    qw( assert_path fail coerce_file is_error );
 use List::Util          qw( first );
 use File::Spec;
 use JSON::PP;
@@ -15,8 +15,7 @@ use aliased 'App::PMark::Profile::Module::Version';
 use aliased 'App::PMark::Profile::Note';
 use aliased 'App::PMark::Profile::Source';
 
-has file        => (is => 'ro', required => 1);
-has path        => (is => 'lazy');
+has file        => (is => 'ro', required => 1, coerce => coerce_file);
 has data        => (is => 'lazy');
 has source_map  => (is => 'rwp', lazy => 1, builder => 1);
 has json        => (is => 'lazy');
@@ -82,8 +81,6 @@ sub merge_sources_with {
     log_info { 'done merging sources' };
 }
 
-sub _build_path { dirname $_[0]->file }
-
 sub _build_json {
     my ($self) = @_;
     my $_inflate = sub {
@@ -109,29 +106,6 @@ sub _build_json {
         )
 }
 
-my %_real_mode = (
-    read    => '<:utf8',
-    write   => '>:utf8',
-);
-
-my $_open = sub {
-    my ($file, $mode) = @_;
-    open my $fh, $_real_mode{$mode}, $file
-        or fail "unable to $mode profile '$file': $!";
-    flock $fh, LOCK_EX
-        or fail "unable to obtain lock for profile '$file': $!";
-    return $fh;
-};
-
-my $_close = sub {
-    my ($fh, $file) = @_;
-    flock $fh, LOCK_UN
-        or fail "unable to release lock to profile '$file': $!";
-    close $fh
-        or fail "unable to close handle to profile '$file': $!";
-    return 1;
-};
-
 sub _build_file {
     my ($self) = @_;
     return File::Spec->catfile($self->path, 'profile.json');
@@ -140,12 +114,8 @@ sub _build_file {
 sub _build_data {
     my ($self) = @_;
     my $file = $self->file;
-    return {}
-        unless -e $file;
     try {
-        my $fh = $file->$_open('read');
-        my $body = do { local $/; <$fh> };
-        $fh->$_close($file);
+        my $body = $file->get;
         my $data = $self->json->decode($body);
         fail "profile '$file' contains no compat version metadata"
             unless defined $data->{meta}{version};
@@ -158,6 +128,9 @@ sub _build_data {
         return $data;
     }
     catch {
+        if (is_error $_, 'App::PMark::Exception::FileNotFound') {
+            return {};
+        }
         die $_ unless $self->is_relaxed;
         chomp(my $error = $_);
         $error =~ s{\s+at\s+\S+\s+line\s+\d+.*}{};
@@ -178,6 +151,7 @@ sub _build_module_map {
 
 sub sources {
     my ($self) = @_;
+    log_debug { 'locating all sources' };
     return values %{$self->source_map};
 }
 
@@ -243,15 +217,8 @@ sub store {
     fail "cannot store a readonly profile"
         if $self->is_readonly;
     my $file = $self->file;
-    unless (-e $file) {
-        log_info { "initializing profile '$file'" };
-        assert_path dirname $file;
-    }
     my $body = $self->as_json;
-    my $fh = $file->$_open('write');
-    print $fh $body
-        or fail "Unable to write content of profile '$file': $!";
-    $fh->$_close($file);
+    $file->put($body);
     return 1;
 }
 
