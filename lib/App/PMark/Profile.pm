@@ -106,11 +106,6 @@ sub _build_json {
         )
 }
 
-#sub _build_file {
-#    my ($self) = @_;
-#    return File::Spec->catfile($self->path, 'profile.json');
-#}
-
 sub _build_data {
     my ($self) = @_;
     my $file = $self->file;
@@ -129,7 +124,6 @@ sub _build_data {
     }
     catch {
         if (is_error $_, 'App::PMark::Exception::FileNotFound') {
-            warn "NOT FOUND $_";
             return {};
         }
         die $_ unless $self->is_relaxed;
