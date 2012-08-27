@@ -23,7 +23,8 @@ sub TO_JSON {
 
 sub merge_with {
     my ($self, $other_module) = @_;
-    $self->recommended($other_module->recommended);
+    $self->recommended(1)
+        if $other_module->recommended;
     $self->merge_tags_with($other_module);
     $self->merge_notes_with($other_module);
     $self->merge_versions_with($other_module);
