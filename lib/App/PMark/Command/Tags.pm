@@ -42,7 +42,7 @@ my $_each_tag = sub {
     return 1;
 };
 
-sub run {
+sub execute {
     my ($self, $profile, $options, @patterns) = @_;
     my %tags;
     my $inc = sub { $tags{$_[0]}++ };
