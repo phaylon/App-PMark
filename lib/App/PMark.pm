@@ -65,6 +65,7 @@ before execute_command => sub {
         outputs => [
             ['Screen',
                 newline     => 1,
+                stderr      => 0,
                 min_level   => $self->global_options->debug
                     ? 'debug'
                     : 'info',
